@@ -65,6 +65,29 @@ func main() {
 		return c.JSON(fiber.Map{"message": "Requests stored for retry"})
 	})
 
+	app.Get("/retry/list", func(c *fiber.Ctx) error {
+		mu.Lock()
+		defer mu.Unlock()
+
+		var retryList []FailedRequest
+
+		for _, item := range requestCache.Items() {
+			req, ok := item.Object.(FailedRequest)
+			if ok {
+				retryList = append(retryList, req)
+			}
+		}
+
+		return c.JSON(fiber.Map{
+			"retry_requests": retryList,
+			"total":          len(retryList),
+		})
+	})
+
+	app.Get("/", func(c *fiber.Ctx) error {
+		return c.SendString("Hello from retry API")
+	})
+
 	// Start worker untuk retry setiap 5 menit
 	go startRetryWorker()
 
