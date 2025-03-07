@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -23,7 +24,7 @@ type FailedRequest struct {
 	FailedURLs  []string          `json:"failed_urls"`
 	Method      string            `json:"method"`
 	Headers     map[string]string `json:"headers"`
-	Body        []byte            `json:"body"`
+	Body        json.RawMessage   `json:"body"`
 	RetryCount  int               `json:"retry_count"`
 	CreatedAt   time.Time         `json:"created_at"`
 	MaxDuration time.Duration     `json:"max_duration"`
@@ -37,7 +38,7 @@ func main() {
 		var req FailedRequest
 
 		// Parsing body JSON
-		if err := c.BodyParser(&req); err != nil {
+		if err := json.Unmarshal(c.Body(), &req); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request format"})
 		}
 
@@ -53,7 +54,7 @@ func main() {
 				FailedURLs:  []string{url}, // Simpan satu URL per entry
 				Method:      req.Method,
 				Headers:     req.Headers,
-				Body:        req.Body,
+				Body:        json.RawMessage(req.Body),
 				RetryCount:  0,
 				CreatedAt:   req.CreatedAt,
 				MaxDuration: req.MaxDuration,
@@ -133,7 +134,7 @@ func startRetryWorker() {
 
 // Fungsi untuk mengirim ulang request ke setiap URL dalam array
 func sendRequest(req FailedRequest) bool {
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{Timeout: 5 * time.Minute}
 
 	// Proses setiap URL yang gagal
 	for _, url := range req.FailedURLs {
